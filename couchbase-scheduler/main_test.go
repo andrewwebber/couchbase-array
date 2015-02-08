@@ -55,7 +55,7 @@ func TestClusterInitialization(t *testing.T) {
 	}
 
 	log.Println(currentStates)
-
+	SaveClusterStates(path, currentStates)
 }
 
 func GetClusterStates(base string) (map[string]NodeState, error) {
@@ -82,6 +82,20 @@ func GetClusterStates(base string) (map[string]NodeState, error) {
 
 	log.Println("Returing")
 	return values, nil
+}
+
+func SaveClusterStates(base string, states map[string]NodeState) error {
+	client := NewEtcdClient()
+	for _, stateValue := range states {
+		bytes, err := json.Marshal(stateValue)
+		key := fmt.Sprintf("%s/states/%s", base, stateValue.IPAddress)
+		_, err = client.Set(key, string(bytes), 0)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func TestGetClusterAnnouncements(t *testing.T) {
