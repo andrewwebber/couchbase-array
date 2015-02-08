@@ -28,7 +28,7 @@ untilunsuccessful() {
   while [ $? -eq 0 ]
   do
     echo Heartbeat successful...
-    sleep 10
+    sleep 60
     "$@"
   done
 
