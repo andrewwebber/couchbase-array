@@ -13,25 +13,95 @@ import (
 	"github.com/coreos/go-etcd/etcd"
 )
 
-var SchedulerDesiredStateJoinCluster = "join"
-var SchedulerDesiredStateDelete = "delete"
-var SchedulerStateDeleted = "join"
+var SchedulerStateNew = "new"
+var SchedulerStateClustered = "clustered"
+var SchedulerStateDeleted = "deleted"
 
-func TestClusterInitialization(t *testing.T) {
+func TestClusterScenarios(t *testing.T) {
 	path := "/TestClusterInitialization"
+	if err := ClearClusterStates(path); err != nil {
+		t.Fatal(err)
+	}
+	if err := ClearAnnouncments(path); err != nil {
+		t.Fatal(err)
+	}
+	//
+	//	First cluster boostrap
+	//
 	_, err := CreateTestNodes(path, 2)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	announcements, err := GetClusterAnnouncements(path)
+	currentStates, err := Schedule(path)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	currentStates, err := GetClusterStates(path)
+	log.Println("Current States")
+	log.Println(currentStates)
+
+	log.Println(currentStates)
+	for _, state := range currentStates {
+		if state.DesiredState != SchedulerStateClustered {
+			t.Fatal("Expected states should be 'clustered'")
+		}
+
+		if state.State != SchedulerStateNew {
+			t.Fatal("Expected states should be 'new'")
+		}
+	}
+	//
+	// Set status to clustered
+	//
+	for key, state := range currentStates {
+		state.State = state.DesiredState
+		currentStates[key] = state
+	}
+
+	SaveClusterStates(path, currentStates)
+
+	currentStates, err = Schedule(path)
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	log.Println("Current States")
+	log.Println(currentStates)
+
+	log.Println(currentStates)
+	for _, state := range currentStates {
+		if state.DesiredState != SchedulerStateClustered {
+			t.Fatal("Expected states should be 'clustered'")
+		}
+
+		if state.State != SchedulerStateClustered {
+			t.Fatal("Expected states should be 'clustered'")
+		}
+	}
+
+	//
+	//	Simulate machine reboot
+	//
+}
+
+func Schedule(path string) (map[string]NodeState, error) {
+	announcements, err := GetClusterAnnouncements(path)
+	if err != nil {
+		return nil, err
+	}
+
+	currentStates, err := GetClusterStates(path)
+	if err != nil {
+		return nil, err
+	}
+
+	return ScheduleCore(announcements, currentStates), nil
+}
+
+func ScheduleCore(announcements map[string]NodeAnnouncement, currentStates map[string]NodeState) map[string]NodeState {
+	for key, _ := range currentStates {
+		log.Println("Current state key ", key)
 	}
 
 	for key, value := range announcements {
@@ -39,10 +109,13 @@ func TestClusterInitialization(t *testing.T) {
 			if state.SessionID == value.SessionID {
 				continue
 			} else {
-				state.DesiredState = SchedulerDesiredStateJoinCluster
+				log.Println("Resetting node")
+				state.DesiredState = SchedulerStateClustered
+				state.State = SchedulerStateNew
 			}
 		} else {
-			currentStates[key] = NodeState{value, false, "", SchedulerDesiredStateJoinCluster}
+			log.Println("Unabled to find state for node ", key)
+			currentStates[key] = NodeState{value, false, SchedulerStateNew, SchedulerStateClustered}
 		}
 	}
 
@@ -54,8 +127,7 @@ func TestClusterInitialization(t *testing.T) {
 		}
 	}
 
-	log.Println(currentStates)
-	SaveClusterStates(path, currentStates)
+	return currentStates
 }
 
 func GetClusterStates(base string) (map[string]NodeState, error) {
@@ -77,10 +149,12 @@ func GetClusterStates(base string) (map[string]NodeState, error) {
 			return nil, err
 		}
 
-		values[node.Key] = state
+		sections := strings.Split(node.Key, "/")
+		nodeKey := sections[len(sections)-1]
+		values[nodeKey] = state
+		log.Println("Loaded state ", state)
 	}
 
-	log.Println("Returing")
 	return values, nil
 }
 
@@ -89,6 +163,7 @@ func SaveClusterStates(base string, states map[string]NodeState) error {
 	for _, stateValue := range states {
 		bytes, err := json.Marshal(stateValue)
 		key := fmt.Sprintf("%s/states/%s", base, stateValue.IPAddress)
+		log.Println("Saving State ", stateValue)
 		_, err = client.Set(key, string(bytes), 0)
 		if err != nil {
 			return err
@@ -96,6 +171,20 @@ func SaveClusterStates(base string, states map[string]NodeState) error {
 	}
 
 	return nil
+}
+
+func ClearClusterStates(base string) error {
+	client := NewEtcdClient()
+	key := fmt.Sprintf("%s/states/", base)
+	_, err := client.Delete(key, true)
+	return err
+}
+
+func ClearAnnouncments(base string) error {
+	client := NewEtcdClient()
+	key := fmt.Sprintf("%s/announcements/", base)
+	_, err := client.Delete(key, true)
+	return err
 }
 
 func TestGetClusterAnnouncements(t *testing.T) {
@@ -113,7 +202,6 @@ func TestGetClusterAnnouncements(t *testing.T) {
 	if len(nodes) != len(testNodes) {
 		t.Fatal("Difference in result lengths")
 	}
-
 }
 
 func GetClusterAnnouncements(path string) (map[string]NodeAnnouncement, error) {
@@ -129,7 +217,9 @@ func GetClusterAnnouncements(path string) (map[string]NodeAnnouncement, error) {
 	}
 
 	for _, node := range response.Node.Nodes {
-		values[node.Key] = NodeAnnouncement{node.Key, node.Value}
+		sections := strings.Split(node.Key, "/")
+		nodeKey := sections[len(sections)-1]
+		values[nodeKey] = NodeAnnouncement{nodeKey, node.Value}
 	}
 
 	return values, nil
@@ -141,7 +231,6 @@ func CreateTestNodes(base string, count int) (map[string]NodeAnnouncement, error
 	for i := 0; i < count; i++ {
 		ip := fmt.Sprintf("10.100.2.%v", i)
 		path := fmt.Sprintf("%s/announcements/%s", base, ip)
-		log.Println("Setting ", path)
 		id := uuid.New()
 		values[ip] = NodeAnnouncement{ip, id}
 		if _, err := client.Set(path, id, 0); err != nil {
