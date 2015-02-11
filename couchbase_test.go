@@ -44,7 +44,8 @@ func TestClusterScenarios(t *testing.T) {
 		}
 	}
 	//
-	// Set status to clustered
+	// Transition status to 'new'
+	// Expect to be transition to 'clustered'
 	//
 	masterFound := false
 	for key, state := range currentStates {
@@ -80,7 +81,9 @@ func TestClusterScenarios(t *testing.T) {
 		}
 	}
 	//
+	// 	Transition to clustered
 	//	Simulate non master machine reboot
+	// 	Expect non master to be reset to desired state 'new'
 	//
 	var nonMasterKey string
 	for key, state := range currentStates {
@@ -124,7 +127,9 @@ func TestClusterScenarios(t *testing.T) {
 		}
 	}
 	//
+	//  Transition both nodes to clustered
 	//	Simulate master machine reboot
+	// 	Expect master to be reset to desired state 'new'
 	//
 	var masterKey string
 	for key, state := range currentStates {
