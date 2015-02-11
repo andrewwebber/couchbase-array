@@ -4,59 +4,64 @@ import (
 	"log"
 	"net"
 	"os"
-	"strings"
 	"time"
 
 	"code.google.com/p/go-uuid/uuid"
 
 	"flag"
-	"fmt"
 
-	"github.com/coreos/go-etcd/etcd"
+	"github.com/andrewwebber/couchbase-array"
 )
 
-var servicePathFlag = flag.String("path", "/services/couchbase-array/announcements", "etcd directory")
-var ttlFlag = flag.Int("ttl", 30, "time to live in seconds")
+var servicePathFlag = flag.String("s", "/services/couchbase-array", "etcd directory")
+var ttlFlag = flag.Int("ttl", 10, "time to live in seconds")
 var debugFlag = flag.Bool("v", false, "verbose")
+var processState = flag.Bool("p", true, "process state requests")
 
 func main() {
 	flag.Parse()
-	client := NewEtcdClient()
 
 	machineIdentifier, err := getMachineIdentifier()
 	if err != nil {
 		panic(err)
 	}
 
-	directory := fmt.Sprintf("%s/%s", *servicePathFlag, machineIdentifier)
 	sessionID := uuid.New()
 
 	for {
-		_, err = client.Set(directory, sessionID, uint64(*ttlFlag+10))
+		announcments, err := couchbasearray.GetClusterAnnouncements(*servicePathFlag)
 		if err != nil {
 			panic(err)
 		}
 
-		if *debugFlag {
-			log.Printf("Written to %s\n", directory)
+		machineState, ok := announcments[machineIdentifier]
+		if !ok {
+			machineState = couchbasearray.NodeState{machineIdentifier, sessionID, false, "", ""}
 		}
+
+		currentStates, err := couchbasearray.GetClusterStates(*servicePathFlag)
+
+		if err == nil {
+			if state, ok := currentStates[machineIdentifier]; ok {
+				if state.State != machineState.State {
+					log.Printf("DesiredState: %s - Current State: %s", state.DesiredState, machineState.State)
+					machineState.State = "transitioning"
+					if *processState {
+						switch state.DesiredState {
+						case couchbasearray.SchedulerStateClustered:
+							log.Println("cluster")
+						case couchbasearray.SchedulerStateNew:
+							log.Println("init")
+						}
+					}
+				}
+			}
+		}
+
+		couchbasearray.SetClusterAnnouncement(*servicePathFlag, machineState)
 
 		time.Sleep(time.Duration(*ttlFlag) * time.Second)
 	}
-}
-
-func NewEtcdClient() (client *etcd.Client) {
-	var etcdClient *etcd.Client
-	peersStr := os.Getenv("ETCDCTL_PEERS")
-	if len(peersStr) > 0 {
-		log.Println("Connecting to etcd peers : " + peersStr)
-		peers := strings.Split(peersStr, ",")
-		etcdClient = etcd.NewClient(peers)
-	} else {
-		etcdClient = etcd.NewClient(nil)
-	}
-
-	return etcdClient
 }
 
 func getMachineIdentifier() (string, error) {
