@@ -2,10 +2,12 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/coreos/go-etcd/etcd"
 )
@@ -14,15 +16,24 @@ var SchedulerStateNew = "new"
 var SchedulerStateClustered = "clustered"
 var SchedulerStateDeleted = "deleted"
 
+var servicePathFlag = flag.String("path", "/services/couchbase-array", "etcd directory")
+var timeOutFlag = flag.Int64("t", 10, "timeout look in seconds")
+
 func main() {
 	for {
-		currentStates, err := Schedule("/services/couchbase-array")
+		currentStates, err := Schedule(*servicePathFlag)
 		if err != nil {
 			panic(err)
 		}
 
 		log.Println("Current States")
 		log.Println(currentStates)
+		err = SaveClusterStates(*servicePathFlag, currentStates)
+		if err != nil {
+			panic(err)
+		}
+
+		time.Sleep(time.Duration(*timeOutFlag) * time.Second)
 	}
 }
 
@@ -42,10 +53,6 @@ func Schedule(path string) (map[string]NodeState, error) {
 }
 
 func ScheduleCore(announcements map[string]NodeAnnouncement, currentStates map[string]NodeState) map[string]NodeState {
-	for key := range currentStates {
-		log.Println("Current state key ", key)
-	}
-
 	for key, value := range announcements {
 		if state, ok := currentStates[key]; ok {
 			if state.SessionID == value.SessionID {
@@ -54,6 +61,7 @@ func ScheduleCore(announcements map[string]NodeAnnouncement, currentStates map[s
 				log.Println("Resetting node")
 				state.DesiredState = SchedulerStateClustered
 				state.State = SchedulerStateNew
+				state.SessionID = value.SessionID
 				currentStates[key] = state
 			}
 		} else {
@@ -74,6 +82,10 @@ func ScheduleCore(announcements map[string]NodeAnnouncement, currentStates map[s
 }
 
 func EnsureMaster(currentStates map[string]NodeState) map[string]NodeState {
+	if len(currentStates) == 0 {
+		return currentStates
+	}
+
 	var lastKey string
 	for key, state := range currentStates {
 		if state.Master {

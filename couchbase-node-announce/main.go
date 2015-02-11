@@ -15,7 +15,7 @@ import (
 	"github.com/coreos/go-etcd/etcd"
 )
 
-var servicePathFlag = flag.String("path", "/services/couchbase-array", "etcd directory")
+var servicePathFlag = flag.String("path", "/services/couchbase-array/announcements", "etcd directory")
 var ttlFlag = flag.Int("ttl", 30, "time to live in seconds")
 var debugFlag = flag.Bool("v", false, "verbose")
 
