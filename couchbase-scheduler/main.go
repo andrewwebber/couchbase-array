@@ -37,7 +37,8 @@ func Schedule(path string) (map[string]NodeState, error) {
 		return nil, err
 	}
 
-	return ScheduleCore(announcements, currentStates), nil
+	currentStates = ScheduleCore(announcements, currentStates)
+	return EnsureMaster(currentStates), nil
 }
 
 func ScheduleCore(announcements map[string]NodeAnnouncement, currentStates map[string]NodeState) map[string]NodeState {
@@ -69,6 +70,22 @@ func ScheduleCore(announcements map[string]NodeAnnouncement, currentStates map[s
 		}
 	}
 
+	return currentStates
+}
+
+func EnsureMaster(currentStates map[string]NodeState) map[string]NodeState {
+	var lastKey string
+	for key, state := range currentStates {
+		if state.Master {
+			return currentStates
+		}
+
+		lastKey = key
+	}
+
+	state := currentStates[lastKey]
+	state.Master = true
+	currentStates[lastKey] = state
 	return currentStates
 }
 
@@ -119,6 +136,12 @@ func ClearClusterStates(base string) error {
 	client := NewEtcdClient()
 	key := fmt.Sprintf("%s/states/", base)
 	_, err := client.Delete(key, true)
+	if err != nil {
+		if strings.Contains(err.Error(), "Key not found") {
+			return nil
+		}
+	}
+
 	return err
 }
 
@@ -126,6 +149,12 @@ func ClearAnnouncments(base string) error {
 	client := NewEtcdClient()
 	key := fmt.Sprintf("%s/announcements/", base)
 	_, err := client.Delete(key, true)
+	if err != nil {
+		if strings.Contains(err.Error(), "Key not found") {
+			return nil
+		}
+	}
+
 	return err
 }
 

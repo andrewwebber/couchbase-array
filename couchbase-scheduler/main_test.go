@@ -35,19 +35,27 @@ func TestClusterScenarios(t *testing.T) {
 	log.Println(currentStates)
 	for _, state := range currentStates {
 		if state.DesiredState != SchedulerStateClustered {
-			t.Fatal("Expected states should be 'clustered'")
+			t.Fatal("Expected state should be 'clustered'")
 		}
 
 		if state.State != SchedulerStateNew {
-			t.Fatal("Expected states should be 'new'")
+			t.Fatal("Expected state should be 'new'")
 		}
 	}
 	//
 	// Set status to clustered
 	//
+	masterFound := false
 	for key, state := range currentStates {
 		state.State = state.DesiredState
 		currentStates[key] = state
+		if !masterFound && state.Master {
+			masterFound = true
+		}
+	}
+
+	if !masterFound {
+		t.Fatal("Expected a master to be selected")
 	}
 
 	SaveClusterStates(path, currentStates)
@@ -63,22 +71,67 @@ func TestClusterScenarios(t *testing.T) {
 	log.Println(currentStates)
 	for _, state := range currentStates {
 		if state.DesiredState != SchedulerStateClustered {
-			t.Fatal("Expected states should be 'clustered'")
+			t.Fatal("Expected state should be 'clustered'")
 		}
 
 		if state.State != SchedulerStateClustered {
-			t.Fatal("Expected states should be 'clustered'")
+			t.Fatal("Expected state should be 'clustered'")
 		}
 	}
 	//
-	//	Simulate machine reboot
+	//	Simulate non machine reboot
 	//
-	var firstKey string
+	var nonMasterKey string
 	for key, state := range currentStates {
-		state.SessionID = uuid.New()
-		currentStates[key] = state
-		firstKey = key
-		break
+		if !state.Master {
+			state.SessionID = uuid.New()
+			currentStates[key] = state
+			nonMasterKey = key
+			break
+		}
+	}
+
+	SaveClusterStates(path, currentStates)
+
+	currentStates, err = Schedule(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	log.Println("Current States")
+	log.Println(currentStates)
+
+	log.Println(currentStates)
+	for key, state := range currentStates {
+		if state.DesiredState != SchedulerStateClustered {
+			t.Fatal("Expected state should be 'clustered'")
+		}
+
+		if state.State != SchedulerStateClustered {
+			if key == nonMasterKey {
+				if state.State != SchedulerStateNew {
+					t.Fatal("Expected state should be 'new'")
+				}
+
+				if state.Master {
+					t.Fatal("Expected state should not be 'mast'")
+				}
+			} else {
+				t.Fatal("Expected state should be 'clustered'")
+			}
+		}
+	}
+	//
+	//	Simulate master machine reboot
+	//
+	var masterKey string
+	for key, state := range currentStates {
+		if !state.Master {
+			state.SessionID = uuid.New()
+			currentStates[key] = state
+			masterKey = key
+			break
+		}
 	}
 
 	SaveClusterStates(path, currentStates)
@@ -98,12 +151,20 @@ func TestClusterScenarios(t *testing.T) {
 		}
 
 		if state.State != SchedulerStateClustered {
-			if key == firstKey {
+			if key == masterKey {
 				if state.State != SchedulerStateNew {
 					t.Fatal("Expected state should be 'new'")
 				}
+
+				if state.Master {
+					t.Fatal("Expected state should not be 'mast'")
+				}
 			} else {
-				t.Fatal("Expected states should be 'clustered'")
+				t.Fatal("Expected state should be 'clustered'")
+			}
+		} else {
+			if !state.Master {
+				t.Fatal("Expected state should be 'master'")
 			}
 		}
 	}
