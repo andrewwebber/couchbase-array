@@ -18,6 +18,11 @@ var SchedulerStateDeleted = "deleted"
 
 var servicePathFlag = flag.String("path", "/services/couchbase-array", "etcd directory")
 var timeOutFlag = flag.Int64("t", 10, "timeout look in seconds")
+var client *etcd.Client
+
+func init() {
+	client = NewEtcdClient()
+}
 
 func main() {
 	for {
@@ -103,7 +108,6 @@ func EnsureMaster(currentStates map[string]NodeState) map[string]NodeState {
 
 func GetClusterStates(base string) (map[string]NodeState, error) {
 	values := make(map[string]NodeState)
-	client := NewEtcdClient()
 	key := fmt.Sprintf("%s/states/", base)
 	response, err := client.Get(key, false, false)
 	if err != nil {
@@ -130,7 +134,6 @@ func GetClusterStates(base string) (map[string]NodeState, error) {
 }
 
 func SaveClusterStates(base string, states map[string]NodeState) error {
-	client := NewEtcdClient()
 	for _, stateValue := range states {
 		bytes, err := json.Marshal(stateValue)
 		key := fmt.Sprintf("%s/states/%s", base, stateValue.IPAddress)
@@ -145,7 +148,6 @@ func SaveClusterStates(base string, states map[string]NodeState) error {
 }
 
 func ClearClusterStates(base string) error {
-	client := NewEtcdClient()
 	key := fmt.Sprintf("%s/states/", base)
 	_, err := client.Delete(key, true)
 	if err != nil {
@@ -158,7 +160,6 @@ func ClearClusterStates(base string) error {
 }
 
 func ClearAnnouncments(base string) error {
-	client := NewEtcdClient()
 	key := fmt.Sprintf("%s/announcements/", base)
 	_, err := client.Delete(key, true)
 	if err != nil {
@@ -172,7 +173,6 @@ func ClearAnnouncments(base string) error {
 
 func GetClusterAnnouncements(path string) (map[string]NodeAnnouncement, error) {
 	values := make(map[string]NodeAnnouncement)
-	client := NewEtcdClient()
 	key := fmt.Sprintf("%s/announcements/", path)
 	response, err := client.Get(key, false, false)
 	if err != nil {

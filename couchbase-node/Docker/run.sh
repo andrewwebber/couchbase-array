@@ -48,4 +48,5 @@ untilsuccessful /opt/couchbase/bin/couchbase-cli cluster-init -u Administrator -
 --cluster-init-ramsize=$RAM_SIZE
 
 echo "Cluster up"
-untilunsuccessful curl 127.0.0.1:8091
+#untilunsuccessful curl 127.0.0.1:8091
+couchbase-node-announce
