@@ -49,4 +49,4 @@ untilsuccessful /opt/couchbase/bin/couchbase-cli cluster-init -u Administrator -
 
 echo "Cluster up"
 #untilunsuccessful curl 127.0.0.1:8091
-couchbase-node-announce
+couchbase-node-announce $@

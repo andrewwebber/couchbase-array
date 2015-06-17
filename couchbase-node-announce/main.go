@@ -10,20 +10,25 @@ import (
 
 	"flag"
 
-	"github.com/andrewwebber/couchbase-array"
+	couchbasearray "github.com/andrewwebber/couchbase-array"
 )
 
 var servicePathFlag = flag.String("s", "/services/couchbase-array", "etcd directory")
 var ttlFlag = flag.Int("ttl", 10, "time to live in seconds")
 var debugFlag = flag.Bool("v", false, "verbose")
 var processState = flag.Bool("p", true, "process state requests")
+var machineIdentiferFlag = flag.String("ip", "", "machine ip address")
 
 func main() {
 	flag.Parse()
 
-	machineIdentifier, err := getMachineIdentifier()
-	if err != nil {
-		panic(err)
+	machineIdentifier := *machineIdentiferFlag
+	if machineIdentifier == "" {
+		var err error
+		machineIdentifier, err = getMachineIdentifier()
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	sessionID := uuid.New()
@@ -71,12 +76,19 @@ func getMachineIdentifier() (string, error) {
 		log.Fatalln(err)
 	}
 
+	var result string
 	for _, a := range addrs {
 		if ipnet, ok := a.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
 			if ipnet.IP.To4() != nil {
-				return ipnet.IP.String(), nil
+				result = ipnet.IP.String()
+				log.Println(ipnet.Network())
+				log.Printf("Found IP %s\n", result)
 			}
 		}
+	}
+
+	if result != "" {
+		return result, nil
 	}
 
 	return os.Hostname()
