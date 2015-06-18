@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	"code.google.com/p/go-uuid/uuid"
+	"github.com/pborman/uuid"
 
 	"flag"
 
@@ -14,7 +14,7 @@ import (
 )
 
 var servicePathFlag = flag.String("s", "/services/couchbase-array", "etcd directory")
-var ttlFlag = flag.Int("ttl", 10, "time to live in seconds")
+var ttlFlag = flag.Int("ttl", 3, "time to live in seconds")
 var debugFlag = flag.Bool("v", false, "verbose")
 var processState = flag.Bool("p", true, "process state requests")
 var machineIdentiferFlag = flag.String("ip", "", "machine ip address")
@@ -39,7 +39,7 @@ func main() {
 			panic(err)
 		}
 
-		machineState, ok := announcments[machineIdentifier]
+		machineState, ok := announcments[sessionID]
 		if !ok {
 			machineState = couchbasearray.NodeState{machineIdentifier, sessionID, false, "", ""}
 		}
@@ -47,18 +47,24 @@ func main() {
 		currentStates, err := couchbasearray.GetClusterStates(*servicePathFlag)
 
 		if err == nil {
-			if state, ok := currentStates[machineIdentifier]; ok {
-				if state.State != machineState.State {
+			if state, ok := currentStates[sessionID]; ok {
+				if state.DesiredState != machineState.State {
 					log.Printf("DesiredState: %s - Current State: %s", state.DesiredState, machineState.State)
-					machineState.State = "transitioning"
 					if *processState {
 						switch state.DesiredState {
 						case couchbasearray.SchedulerStateClustered:
-							log.Println("cluster")
+							log.Println("clustering")
+							machineState.State = state.DesiredState
 						case couchbasearray.SchedulerStateNew:
-							log.Println("init")
+							log.Println("adding server to cluster")
+							machineState.State = state.DesiredState
+						default:
+							log.Println(state.DesiredState)
+							log.Fatal("unknown state")
 						}
 					}
+				} else {
+					log.Println("Running")
 				}
 			}
 		}

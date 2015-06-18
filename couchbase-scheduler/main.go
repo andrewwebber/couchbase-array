@@ -13,20 +13,20 @@ var SchedulerStateClustered = "clustered"
 var SchedulerStateDeleted = "deleted"
 
 var servicePathFlag = flag.String("path", "/services/couchbase-array", "etcd directory")
-var timeOutFlag = flag.Int64("t", 10, "timeout look in seconds")
+var timeOutFlag = flag.Int64("t", 3, "timeout look in seconds")
 
 func main() {
 	for {
 		currentStates, err := couchbasearray.Schedule(*servicePathFlag)
 		if err != nil {
-			panic(err)
+			log.Fatal(err)
 		}
 
-		log.Println("Current States")
+		log.Println("")
 		log.Println(currentStates)
 		err = couchbasearray.SaveClusterStates(*servicePathFlag, currentStates)
 		if err != nil {
-			panic(err)
+			log.Fatal(err)
 		}
 
 		time.Sleep(time.Duration(*timeOutFlag) * time.Second)

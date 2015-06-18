@@ -37,10 +37,6 @@ untilunsuccessful() {
 
 RAMSIZE=0
 RAMSIZE=$(cat /proc/meminfo | grep MemFree | awk '{print $2}')
-#let "SIZE = $RAMSIZE/1024"
-#echo "RAM SIZE" $(echo $RAMSIZE)
-#echo "Init RAM SIZE" $(echo $SIZE)
-#ACCEPTABLE_RAM_SIZE=$(echo "scale=0; $SIZE * 0.75" | bc)
 echo "Acceptable RAM SIZE" $(echo $RAM_SIZE)
 echo "Configuring Couchbase cluster"
 untilsuccessful /opt/couchbase/bin/couchbase-cli cluster-init -u Administrator -p password -c 127.0.0.1:8091 \
