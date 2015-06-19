@@ -1,7 +1,7 @@
 FROM debian:latest
 
 RUN apt-get update && apt-get install -y \
-    ca-certificates wget python-httplib2
+    ca-certificates wget python-httplib2 curl
 
 RUN wget -N -P /tmp http://packages.couchbase.com/releases/3.0.1/couchbase-server-community_3.0.1-debian7_amd64.deb
 RUN dpkg -i /tmp/couchbase-server-community_3.0.1-debian7_amd64.deb

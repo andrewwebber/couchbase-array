@@ -19,9 +19,9 @@ import (
 var servicePathFlag = flag.String("s", "/services/couchbase-array", "etcd directory")
 var ttlFlag = flag.Int("ttl", 3, "time to live in seconds")
 var debugFlag = flag.Bool("v", false, "verbose")
-var processState = flag.Bool("p", true, "process state requests")
 var machineIdentiferFlag = flag.String("ip", "", "machine ip address")
 var whatIfFlag = flag.Bool("t", false, "what if")
+var cliBase = flag.String("cli", "/opt/couchbase/bin/couchbase-cli", "path to couchbase cli")
 
 func main() {
 	flag.Parse()
@@ -34,6 +34,8 @@ func main() {
 			log.Fatal(err)
 		}
 	}
+
+	log.Printf("Machine ID: %s\n", machineIdentifier)
 
 	sessionID := uuid.New()
 
@@ -56,51 +58,89 @@ func main() {
 
 			currentStates, err := couchbasearray.GetClusterStates(*servicePathFlag)
 
-			if err == nil {
+			master, err := getMasterNode(currentStates)
+			if err != nil {
+				err := couchbasearray.AcquireLock(sessionID, *servicePathFlag+"/master", 5)
+				if err == nil {
+					go couchbasearray.StartScheduler(*servicePathFlag, 3)
+					go func() {
+						failoverSet := false
+						for {
+							lockErr := couchbasearray.AcquireLock(sessionID, *servicePathFlag+"/master", 5)
+							if lockErr != nil {
+								log.Fatal(lockErr)
+							}
+
+							if !failoverSet {
+								if failOverErr := setAutoFailover(machineIdentifier, 31); err != nil {
+									log.Println(failOverErr)
+								} else {
+									failoverSet = true
+								}
+							}
+
+							time.Sleep(4 * time.Second)
+						}
+					}()
+				}
+
+				if err != nil && err != couchbasearray.ErrLockInUse {
+					log.Fatal(err)
+				}
+			} else {
 				if state, ok := currentStates[sessionID]; ok {
 					if state.DesiredState != machineState.State {
 						log.Printf("DesiredState: %s - Current State: %s", state.DesiredState, machineState.State)
-						if *processState {
-							switch state.DesiredState {
-							case couchbasearray.SchedulerStateClustered:
-								log.Println("rebalancing")
-								master, err := getMasterNode(currentStates)
-								if err != nil {
-									log.Println(err)
-								} else {
-									if master.IPAddress == machineIdentifier {
-										log.Println("Already master no action required")
-									} else {
-										log.Printf("rebalancing with master node %s\n", master.IPAddress)
-									}
 
-									machineState.State = state.DesiredState
+						switch state.DesiredState {
+						case couchbasearray.SchedulerStateClustered:
+							log.Println("rebalancing")
+
+							if master.IPAddress == machineIdentifier {
+								log.Println("Already master no action required")
+							} else {
+								log.Printf("rebalancing with master node %s\n", master.IPAddress)
+								if !*whatIfFlag {
+									err = rebalanceNode(master.IPAddress, machineIdentifier)
 								}
-
-							case couchbasearray.SchedulerStateNew:
-								log.Println("adding server to cluster")
-								master, err := getMasterNode(currentStates)
-								if err != nil {
-									log.Println(err)
-								} else {
-									if master.IPAddress == machineIdentifier {
-										log.Println("Already master no action required")
-									} else {
-										log.Printf("Adding to master node %s\n", master.IPAddress)
-									}
-
-									machineState.State = state.DesiredState
-								}
-
-							default:
-								log.Println(state.DesiredState)
-								log.Fatal("unknown state")
 							}
+
+							if err == nil {
+								machineState.State = state.DesiredState
+							} else {
+								log.Println(err)
+							}
+
+						case couchbasearray.SchedulerStateNew:
+							log.Println("adding server to cluster")
+							master, err := getMasterNode(currentStates)
+							if err != nil {
+								log.Println(err)
+							} else {
+								if master.IPAddress == machineIdentifier {
+									log.Println("Already master no action required")
+								} else {
+									log.Printf("Adding to master node %s\n", master.IPAddress)
+									if !*whatIfFlag {
+										err = addNodeToCluster(master.IPAddress, machineIdentifier)
+									}
+								}
+
+								if err == nil {
+									machineState.State = state.DesiredState
+								} else {
+									log.Println(err)
+								}
+							}
+						default:
+							log.Println(state.DesiredState)
+							log.Fatal("unknown state")
 						}
-					} else {
-						log.Println("Running")
 					}
+				} else {
+					log.Println("Running")
 				}
+
 			}
 
 			couchbasearray.SetClusterAnnouncement(*servicePathFlag, machineState)
@@ -112,7 +152,24 @@ func main() {
 	ch := make(chan os.Signal)
 	signal.Notify(ch, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGTERM)
 	log.Println(<-ch)
-	log.Println("Failover")
+	log.Println("Failing over")
+
+	currentStates, err := couchbasearray.GetClusterStates(*servicePathFlag)
+	if err != nil {
+		log.Fatal(err)
+		return
+	}
+
+	master, err := getMasterNode(currentStates)
+	if err != nil {
+		log.Fatal(err)
+		return
+	}
+
+	err = failoverClusterNode(master.IPAddress, machineIdentifier)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 func getMasterNode(nodes map[string]couchbasearray.NodeState) (couchbasearray.NodeState, error) {
@@ -140,6 +197,7 @@ func getMachineIdentifier() (string, error) {
 				result = ipnet.IP.String()
 				log.Println(ipnet.Network())
 				log.Printf("Found IP %s\n", result)
+				break
 			}
 		}
 	}

@@ -41,7 +41,6 @@ func ScheduleCore(announcements map[string]NodeState, currentStates map[string]N
 	for key, announcement := range announcements {
 		if state, ok := currentStates[key]; ok {
 			if state.SessionID == announcement.SessionID {
-				log.Printf("DesiredState: %s, State:%s\n", state.DesiredState, announcement.State)
 				if state.DesiredState == SchedulerStateNew && announcement.State == SchedulerStateNew {
 					state.DesiredState = SchedulerStateClustered
 					currentStates[key] = state
@@ -126,7 +125,6 @@ func SaveClusterStates(base string, states map[string]NodeState) error {
 	for _, stateValue := range states {
 		bytes, err := json.Marshal(stateValue)
 		key := fmt.Sprintf("%s/states/%s", base, stateValue.SessionID)
-		log.Println("Saving State ", stateValue)
 		_, err = client.Set(key, string(bytes), 5)
 		if err != nil {
 			return err
@@ -216,8 +214,13 @@ func (n NodeState) String() string {
 		n.DesiredState)
 }
 
+var etcdClient *etcd.Client
+
 func NewEtcdClient() (client *etcd.Client) {
-	var etcdClient *etcd.Client
+	if etcdClient != nil {
+		return etcdClient
+	}
+
 	peersStr := os.Getenv("ETCDCTL_PEERS")
 	if len(peersStr) > 0 {
 		log.Println("Connecting to etcd peers : " + peersStr)

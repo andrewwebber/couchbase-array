@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -m # Enable Job Control
+
 control_c()
 # run if user hits control-c
 {
@@ -45,4 +47,5 @@ untilsuccessful /opt/couchbase/bin/couchbase-cli cluster-init -u Administrator -
 
 echo "Cluster up"
 #untilunsuccessful curl 127.0.0.1:8091
+export PATH=$PATH:/opt/couchbase/bin/
 couchbase-node-announce $@
