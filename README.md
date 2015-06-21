@@ -1,4 +1,4 @@
-# Elastic Couchbase Server Array
+# Elastic Couchbase Server Docker Container Array
 
 ## Features
 - Automatically add and rebalance **cattle** couchbase nodes using etcd as a discovery service
