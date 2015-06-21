@@ -1,4 +1,6 @@
-# Couchbase-array
+# Couchbase Cloud Array
+
+Automatically add and rebalance **cattle** couchbase nodes using etcd as a discovery service
 
 ## Concept
 
@@ -26,10 +28,48 @@ The scheduler is responsible for keeping the cluster balanced. Rebalancing the c
   3. As nodes are detected desired actions are issued to nodes via etcd
   4. If the master goes down another cluster node aquires the master lock and begins the scheduler
 
-## Building
+## Building and testing
 
 The project requires a golang project structure
 
+1.  Build the Docker container
+
+    ```bash
+    ./src/github.com/andrewwebber/couchbase-array/couchbase-node/Docker/build.sh
+    ```
+
+2.  Start etcd (below using boot2docker IPAddress)
+
+    ```bash
+    go get github.com/coreos/etcd
+    etcd --advertise-client-urls=http://192.168.89.1:4001,http://localhost:4001 --listen-client-urls=http://192.168.89.1:4001,http://localhost:4001
+    ```
+
+3.  Start as many couchbase containers as you want
+
+    ```bash
+    docker run -d --name couchbase1 -p 8091:8091 -e ETCDCTL_PEERS=http://192.168.89.1:4001 andrewwebber/couchbase-cloudarray
+    docker run -d --name couchbase2 -e ETCDCTL_PEERS=http://192.168.89.1:4001 andrewwebber/couchbase-cloudarray
+    docker run -d --name couchbase3 -e ETCDCTL_PEERS=http://192.168.89.1:4001 andrewwebber/couchbase-cloudarray
+    ```
+
+4.  Browser to a node [http://192.168.89.103:8091] and login with **Administrator** **password**
+
+5.  Destroy and start containers at will
+
+
+## Production setup
+
+In production the docker arguments simply change to use **--net="host"**
+
+Below is an example systemd service unit
+
 ```bash
-./src/github.com/andrewwebber/couchbase-cloudarray/couchbase-node/Docker/build.sh
+[Service]
+TimeoutStartSec=10m
+ExecStartPre=-/usr/bin/docker kill couchbase
+ExecStartPre=-/usr/bin/docker rm couchbase
+ExecStart=/usr/bin/docker run --rm -it --name couchbase --net="host" -e ETCDCTL_PEERS=http://10.100.2.2:4001 --ulimit nofile=40960:40960 --ulimit core=100000000:100000000 --ulimit memlock=100000000:100000000  andrewwebber/couchbase-cloudarray
+Restart=always
+RestartSec=20
 ```
