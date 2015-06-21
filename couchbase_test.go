@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"testing"
+	"time"
 
 	"code.google.com/p/go-uuid/uuid"
 )
@@ -206,7 +207,7 @@ func CreateTestNodes(base string, count int) (map[string]NodeState, error) {
 		ip := fmt.Sprintf("10.100.2.%v", i)
 		path := fmt.Sprintf("%s/announcements/%s", base, ip)
 		id := uuid.New()
-		node := NodeState{ip, id, false, "", ""}
+		node := NodeState{ip, id, false, "", "", time.Now().UnixNano()}
 		values[ip] = node
 		bytes, err := json.Marshal(node)
 		if err != nil {

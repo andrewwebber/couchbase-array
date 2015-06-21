@@ -152,8 +152,18 @@ func addNodeToCluster(masterIP string, nodeIP string) error {
 		return err
 	}
 
+	body, err := ioutil.ReadAll(presp.Body)
+	if err != nil {
+		return err
+	}
+
 	if presp.StatusCode != 200 {
 		log.Println(presp.Status)
+		log.Println(string(body))
+		if strings.Contains(string(body), "Prepare join failed. Node is already part of cluster.") {
+			return nil
+		}
+
 		return errors.New("Invalid status code")
 	}
 
@@ -190,8 +200,14 @@ func rebalanceNode(masterIP string, nodeIP string) error {
 		return err
 	}
 
+	body, err := ioutil.ReadAll(presp.Body)
+	if err != nil {
+		return err
+	}
+
 	if presp.StatusCode != 200 {
 		log.Println(presp.Status)
+		log.Println(string(body))
 		return errors.New("Invalid status code")
 	}
 

@@ -1,8 +1,8 @@
 package main
 
 import (
-	"errors"
 	"log"
+	"math"
 	"net"
 	"os"
 	"os/signal"
@@ -17,14 +17,19 @@ import (
 )
 
 var servicePathFlag = flag.String("s", "/services/couchbase-array", "etcd directory")
-var ttlFlag = flag.Int("ttl", 3, "time to live in seconds")
+var heartBeatFlag = flag.Int("h", 3, "heart beat loop in seconds")
+var ttlFlag = flag.Int("ttl", 30, "time to live in seconds")
 var debugFlag = flag.Bool("v", false, "verbose")
 var machineIdentiferFlag = flag.String("ip", "", "machine ip address")
 var whatIfFlag = flag.Bool("t", false, "what if")
 var cliBase = flag.String("cli", "/opt/couchbase/bin/couchbase-cli", "path to couchbase cli")
 
 func main() {
+	log.SetFlags(log.Llongfile)
 	flag.Parse()
+
+	couchbasearray.TTL = uint64(*ttlFlag)
+	log.Printf("TTL %v\n", couchbasearray.TTL)
 
 	machineIdentifier := *machineIdentiferFlag
 	if machineIdentifier == "" {
@@ -43,7 +48,8 @@ func main() {
 		for {
 			announcments, err := couchbasearray.GetClusterAnnouncements(*servicePathFlag)
 			if err != nil {
-				panic(err)
+				log.Println(err)
+				continue
 			}
 
 			machineState, ok := announcments[sessionID]
@@ -58,17 +64,20 @@ func main() {
 
 			currentStates, err := couchbasearray.GetClusterStates(*servicePathFlag)
 
-			master, err := getMasterNode(currentStates)
+			master, err := couchbasearray.GetMasterNode(currentStates)
 			if err != nil {
 				err := couchbasearray.AcquireLock(sessionID, *servicePathFlag+"/master", 5)
 				if err == nil {
-					go couchbasearray.StartScheduler(*servicePathFlag, 3)
+					stopScheduler := make(chan bool)
+					go couchbasearray.StartScheduler(*servicePathFlag, *heartBeatFlag, stopScheduler)
 					go func() {
 						failoverSet := false
 						for {
 							lockErr := couchbasearray.AcquireLock(sessionID, *servicePathFlag+"/master", 5)
 							if lockErr != nil {
-								log.Fatal(lockErr)
+								log.Println(lockErr)
+								stopScheduler <- true
+								return
 							}
 
 							if !failoverSet {
@@ -85,7 +94,8 @@ func main() {
 				}
 
 				if err != nil && err != couchbasearray.ErrLockInUse {
-					log.Fatal(err)
+					log.Println(err)
+					continue
 				}
 			} else {
 				if state, ok := currentStates[sessionID]; ok {
@@ -113,7 +123,7 @@ func main() {
 
 						case couchbasearray.SchedulerStateNew:
 							log.Println("adding server to cluster")
-							master, err := getMasterNode(currentStates)
+							master, err := couchbasearray.GetMasterNode(currentStates)
 							if err != nil {
 								log.Println(err)
 							} else {
@@ -140,12 +150,14 @@ func main() {
 				} else {
 					log.Println("Running")
 				}
-
 			}
 
-			couchbasearray.SetClusterAnnouncement(*servicePathFlag, machineState)
+			err = couchbasearray.SetClusterAnnouncement(*servicePathFlag, machineState)
+			if err != nil {
+				log.Println(err)
+			}
 
-			time.Sleep(time.Duration(*ttlFlag) * time.Second)
+			time.Sleep(time.Duration(*heartBeatFlag) * time.Second)
 		}
 	}()
 
@@ -160,7 +172,7 @@ func main() {
 		return
 	}
 
-	master, err := getMasterNode(currentStates)
+	master, err := couchbasearray.GetMasterNode(currentStates)
 	if err != nil {
 		log.Fatal(err)
 		return
@@ -170,17 +182,6 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-}
-
-func getMasterNode(nodes map[string]couchbasearray.NodeState) (couchbasearray.NodeState, error) {
-	var master couchbasearray.NodeState
-	for _, masterState := range nodes {
-		if masterState.Master {
-			return masterState, nil
-		}
-	}
-
-	return master, errors.New("Not found")
 }
 
 func getMachineIdentifier() (string, error) {
@@ -207,4 +208,26 @@ func getMachineIdentifier() (string, error) {
 	}
 
 	return os.Hostname()
+}
+
+type function func() error
+
+func exponential(operation function, maxRetries int) error {
+	var err error
+	var sleepTime int
+	for i := 0; i < maxRetries; i++ {
+		err = operation()
+		if err == nil {
+			return nil
+		}
+		if i == 0 {
+			sleepTime = 1
+		} else {
+			sleepTime = int(math.Exp2(float64(i)) * 100)
+		}
+		time.Sleep(time.Duration(sleepTime) * time.Millisecond)
+		log.Printf("Retry exponential: Attempt %d, sleep %d", i, sleepTime)
+	}
+
+	return err
 }

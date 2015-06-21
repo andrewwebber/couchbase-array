@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/coreos/go-etcd/etcd"
 )
@@ -15,6 +16,7 @@ var SchedulerStateNew = "new"
 var SchedulerStateRelax = "relax"
 var SchedulerStateClustered = "clustered"
 var SchedulerStateDeleted = "deleted"
+var TTL uint64 = 5
 
 var client *etcd.Client
 
@@ -60,7 +62,8 @@ func ScheduleCore(announcements map[string]NodeState, currentStates map[string]N
 			}
 		} else {
 			log.Println("Unabled to find state for node ", key)
-			currentStates[key] = NodeState{announcement.IPAddress, announcement.SessionID, false, SchedulerStateNew, SchedulerStateNew}
+			ttl := time.Now().UnixNano()
+			currentStates[key] = NodeState{announcement.IPAddress, announcement.SessionID, false, SchedulerStateNew, SchedulerStateNew, ttl}
 		}
 	}
 
@@ -80,18 +83,31 @@ func SelectMaster(currentStates map[string]NodeState) map[string]NodeState {
 		return currentStates
 	}
 
+	ttl := time.Now().UnixNano()
+	var oldMasterKey string
 	var lastKey string
 	for key, state := range currentStates {
 		if state.Master {
-			return currentStates
+			if ttl > state.TTL {
+				oldMasterKey = key
+				log.Print("Master TTL reached")
+			} else {
+				return currentStates
+			}
+		} else {
+			lastKey = key
 		}
-
-		lastKey = key
 	}
 
 	state := currentStates[lastKey]
 	state.Master = true
 	currentStates[lastKey] = state
+
+	if oldMasterKey != "" {
+		state = currentStates[oldMasterKey]
+		state.Master = false
+		currentStates[oldMasterKey] = state
+	}
 	return currentStates
 }
 
@@ -125,7 +141,7 @@ func SaveClusterStates(base string, states map[string]NodeState) error {
 	for _, stateValue := range states {
 		bytes, err := json.Marshal(stateValue)
 		key := fmt.Sprintf("%s/states/%s", base, stateValue.SessionID)
-		_, err = client.Set(key, string(bytes), 5)
+		_, err = client.Set(key, string(bytes), TTL)
 		if err != nil {
 			return err
 		}
@@ -190,7 +206,7 @@ func SetClusterAnnouncement(base string, state NodeState) error {
 	if err != nil {
 		return err
 	}
-	if _, err := client.Set(path, string(bytes), 5); err != nil {
+	if _, err := client.Set(path, string(bytes), TTL); err != nil {
 		return err
 	}
 
@@ -203,6 +219,7 @@ type NodeState struct {
 	Master       bool   `json:"master"`
 	State        string `json:"state"`
 	DesiredState string `json:"desiredState"`
+	TTL          int64  `json:"ttl"`
 }
 
 func (n NodeState) String() string {
