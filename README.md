@@ -1,6 +1,9 @@
-# Couchbase Cloud Array
+# Elastic Couchbase Server Array
 
-Automatically add and rebalance **cattle** couchbase nodes using etcd as a discovery service
+## Features
+- Automatically add and rebalance **cattle** couchbase nodes using etcd as a discovery service
+- Gracefull failover/remove node on container shutdown
+- Survive ETCD outages
 
 ## Concept
 
