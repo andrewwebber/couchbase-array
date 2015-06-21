@@ -2,18 +2,19 @@
 
 set -m # Enable Job Control
 
-control_c()
-# run if user hits control-c
-{
-  echo -en "\n*** Exiting ***\n"
-  exit 0
-}
-
-# trap keyboard interrupt (control-c)
-trap control_c SIGINT
-
 echo "Starting Couchbase"
 /etc/init.d/couchbase-server start
+
+function clean_up {
+
+	# Perform program exit housekeeping
+	echo "# Perform program exit housekeeping $(echo $C_PID)"
+  kill -SIGTERM $C_PID
+  wait $C_PID
+	exit
+}
+
+trap 'clean_up' SIGHUP SIGINT SIGTERM TERM
 
 untilsuccessful() {
   "$@"
@@ -48,4 +49,6 @@ untilsuccessful /opt/couchbase/bin/couchbase-cli cluster-init -u Administrator -
 echo "Cluster up"
 #untilunsuccessful curl 127.0.0.1:8091
 export PATH=$PATH:/opt/couchbase/bin/
-couchbase-node-announce $@
+couchbase-node-announce $@ &
+C_PID=$!
+wait $C_PID
