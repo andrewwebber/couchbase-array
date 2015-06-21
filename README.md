@@ -64,6 +64,8 @@ The project requires a golang project structure
 ## Production setup
 
 In production the docker arguments simply change to use **--net="host"**
+- When a container starts it will rebalance of a master node
+- When a container stop it will failover/remove its self from the cluster
 
 Below is an example systemd service unit
 
@@ -73,6 +75,10 @@ TimeoutStartSec=10m
 ExecStartPre=-/usr/bin/docker kill couchbase
 ExecStartPre=-/usr/bin/docker rm couchbase
 ExecStart=/usr/bin/docker run --rm -it --name couchbase --net="host" -e ETCDCTL_PEERS=http://10.100.2.2:4001 --ulimit nofile=40960:40960 --ulimit core=100000000:100000000 --ulimit memlock=100000000:100000000  andrewwebber/couchbase-cloudarray
+ExecStop=/usr/bin/docker stop couchbase
 Restart=always
 RestartSec=20
 ```
+
+## TODO
+Allow the joining of an existing container to speed up rebalancing, currently all containers started are fresh instances
