@@ -31,6 +31,22 @@ The scheduler is responsible for keeping the cluster balanced. Rebalancing the c
   3. As nodes are detected desired actions are issued to nodes via etcd
   4. If the master goes down another cluster node aquires the master lock and begins the scheduler
 
+## Gracefull faillover and Delta Rebalancing
+- As a container shuts down it will try issue a gracefull failover
+  + The container will block and wait until the gracefull failover has completed
+  + The container will then issue an asynchronous rebalance before exiting
+  + Here is it important that the container is given enough time to gracefully shutdown
+
+    ```bash
+    docker stop --time=120 couchbase
+    ```
+
+- As a container starts it will try to add its self to the cluster
+  + If it is already a member of the cluster it will issue a 'setRecoveryType' to delta
+  + In any case it will finally trigger a rebalance
+
+Currently the program sets auto failover to be 31 seconds. 
+
 ## Building and testing
 
 The project requires a golang project structure
@@ -72,10 +88,12 @@ Below is an example systemd service unit
 ```bash
 [Service]
 TimeoutStartSec=10m
+ExecStartPre=-/usr/bin/mkdir /home/core/couchbase
+ExecStartPre=/usr/bin/chown 999:999 /home/core/couchbase
 ExecStartPre=-/usr/bin/docker kill couchbase
-ExecStartPre=-/usr/bin/docker rm couchbase
-ExecStart=/usr/bin/docker run --rm -it --name couchbase --net="host" -e ETCDCTL_PEERS=http://10.100.2.2:4001 --ulimit nofile=40960:40960 --ulimit core=100000000:100000000 --ulimit memlock=100000000:100000000  andrewwebber/couchbase-cloudarray
-ExecStop=/usr/bin/docker stop couchbase
+ExecStartPre=-/usr/bin/docker rm -f couchbase
+ExecStart=-/usr/bin/sh -c 'source /etc/profile.d/etcdctl.sh && /usr/bin/docker run --name couchbase --net="host" -v /home/core/couchbase:/opt/couchbase/var -e ETCDCTL_PEERS=http://10.100.2.2:4001 --ulimit nofile=40960:40960 --ulimit core=100000000:100000000 --ulimit memlock=100000000:100000000 andrewwebber/couchbase-cloudarray'
+ExecStop=/usr/bin/docker stop --time=120 couchbase
 Restart=always
 RestartSec=20
 ```

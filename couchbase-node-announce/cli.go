@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func localOtpNode(liveNodeIP string, nodeIP string) (otpNode string, err error) {
@@ -128,13 +129,59 @@ func setAutoFailover(masterIP string, timeoutInSeconds int) error {
 	return err
 }
 
-func addNodeToCluster(masterIP string, nodeIP string) error {
+func addNodeToCluster(masterIP string, nodeIP string) (bool, error) {
 	endpointURL := fmt.Sprintf("http://%s:%v/controller/addNode", masterIP, 8091)
 	log.Println(endpointURL)
 	data := url.Values{
 		"hostname": {nodeIP},
 		"user":     {"Administrator"},
 		"password": {"password"},
+	}
+
+	preq, err := http.NewRequest("POST", endpointURL, bytes.NewBufferString(data.Encode()))
+	if err != nil {
+		return false, err
+	}
+
+	preq.SetBasicAuth("Administrator", "password")
+
+	preq.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+
+	pclient := &http.Client{}
+	presp, err := pclient.Do(preq)
+	if err != nil {
+		return false, err
+	}
+
+	body, err := ioutil.ReadAll(presp.Body)
+	if err != nil {
+		return false, err
+	}
+
+	if presp.StatusCode != 200 {
+		log.Println(presp.Status)
+		log.Println(string(body))
+		if strings.Contains(string(body), "Prepare join failed. Node is already part of cluster.") {
+			return true, nil
+		}
+
+		return false, errors.New("Invalid status code")
+	}
+
+	return false, err
+}
+
+func recoverNode(masterIP string, nodeIP string) error {
+	local, err := localOtpNode(masterIP, nodeIP)
+	if err != nil {
+		return err
+	}
+
+	endpointURL := fmt.Sprintf("http://%s:%v/controller/setRecoveryType", masterIP, 8091)
+	log.Println(endpointURL)
+	data := url.Values{
+		"otpNode":      {local},
+		"recoveryType": {"delta"},
 	}
 
 	preq, err := http.NewRequest("POST", endpointURL, bytes.NewBufferString(data.Encode()))
@@ -160,10 +207,6 @@ func addNodeToCluster(masterIP string, nodeIP string) error {
 	if presp.StatusCode != 200 {
 		log.Println(presp.Status)
 		log.Println(string(body))
-		if strings.Contains(string(body), "Prepare join failed. Node is already part of cluster.") {
-			return nil
-		}
-
 		return errors.New("Invalid status code")
 	}
 
@@ -215,23 +258,15 @@ func rebalanceNode(masterIP string, nodeIP string) error {
 }
 
 func failoverClusterNode(masterIP string, nodeIP string) error {
-	otpNodeList, err := otpNodeList(masterIP)
-	if err != nil {
-		return err
-	}
-
-	otpNodes := strings.Join(otpNodeList, ",")
-
 	local, err := localOtpNode(masterIP, nodeIP)
 	if err != nil {
 		return err
 	}
 
-	endpointURL := fmt.Sprintf("http://%s:%v/controller/rebalance", masterIP, 8091)
+	endpointURL := fmt.Sprintf("http://%s:%v/controller/startGracefulFailover", masterIP, 8091)
 	log.Println(endpointURL)
 	data := url.Values{
-		"ejectedNodes": {local},
-		"knownNodes":   {otpNodes},
+		"otpNode": {local},
 	}
 
 	preq, err := http.NewRequest("POST", endpointURL, bytes.NewBufferString(data.Encode()))
@@ -252,6 +287,44 @@ func failoverClusterNode(masterIP string, nodeIP string) error {
 	if presp.StatusCode != 200 {
 		log.Println(presp.Status)
 		return errors.New("Invalid status code")
+	}
+
+	endpointURL = fmt.Sprintf("http://%s:%v/pools/default/rebalanceProgress", masterIP, 8091)
+	log.Println(endpointURL)
+
+	for {
+		rebalanceRequest, err := http.NewRequest("GET", endpointURL, nil)
+		rebalanceRequest.SetBasicAuth("Administrator", "password")
+		rResp, err := pclient.Do(rebalanceRequest)
+		if err != nil {
+			return err
+		}
+
+		body, err := ioutil.ReadAll(rResp.Body)
+		if err != nil {
+			return err
+		}
+
+		if rResp.StatusCode != 200 {
+			log.Println(rResp.Status)
+			log.Println(string(body))
+			return errors.New("Invalid status code")
+		}
+
+		type rebalanceStatus struct {
+			Status string `json:"status"`
+		}
+
+		var status rebalanceStatus
+		if err = json.Unmarshal(body, &status); err != nil {
+			return err
+		}
+
+		if status.Status != "running" {
+			break
+		}
+
+		time.Sleep(1 * time.Second)
 	}
 
 	return err

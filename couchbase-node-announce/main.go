@@ -43,6 +43,7 @@ func main() {
 	log.Printf("Machine ID: %s\n", machineIdentifier)
 
 	sessionID := uuid.New()
+	var isClusterMember bool
 
 	go func() {
 		for {
@@ -111,6 +112,10 @@ func main() {
 							} else {
 								log.Printf("rebalancing with master node %s\n", master.IPAddress)
 								if !*whatIfFlag {
+									if isClusterMember {
+										err = recoverNode(master.IPAddress, machineIdentifier)
+									}
+
 									err = rebalanceNode(master.IPAddress, machineIdentifier)
 								}
 							}
@@ -132,7 +137,7 @@ func main() {
 								} else {
 									log.Printf("Adding to master node %s\n", master.IPAddress)
 									if !*whatIfFlag {
-										err = addNodeToCluster(master.IPAddress, machineIdentifier)
+										isClusterMember, err = addNodeToCluster(master.IPAddress, machineIdentifier)
 									}
 								}
 
@@ -179,6 +184,11 @@ func main() {
 	}
 
 	err = failoverClusterNode(master.IPAddress, machineIdentifier)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = rebalanceNode(master.IPAddress, machineIdentifier)
 	if err != nil {
 		log.Fatal(err)
 	}
