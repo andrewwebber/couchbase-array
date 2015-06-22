@@ -45,7 +45,7 @@ The scheduler is responsible for keeping the cluster balanced. Rebalancing the c
   + If it is already a member of the cluster it will issue a 'setRecoveryType' to delta
   + In any case it will finally trigger a rebalance
 
-Currently the program sets auto failover to be 31 seconds. 
+Currently the program sets auto failover to be 31 seconds.
 
 ## Building and testing
 
@@ -97,6 +97,3 @@ ExecStop=/usr/bin/docker stop --time=120 couchbase
 Restart=always
 RestartSec=20
 ```
-
-## TODO
-Allow the joining of an existing container to speed up rebalancing, currently all containers started are fresh instances
