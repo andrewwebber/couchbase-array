@@ -13,7 +13,7 @@ The Couchbase Node is responsible for starting up an instance of Couchbase serve
 
 - Each cluster node is disposable when replication at a bucket level is enabled
 - Each cluster node runs a disposable docker container activated by a systemd unit
-- Every time the systemd unit recylces
+- Every time the systemd unit recycles
   1. Starts the couchbase docker container.
   2. Attempts to acquire a scheduler lock from etcd
   3. Writes a label registering it's self with the backend store for initialization
@@ -81,7 +81,7 @@ The project requires a golang project structure
 
 In production the docker arguments simply change to use **--net="host"**
 - When a container starts it will rebalance of a master node
-- When a container stop it will failover/remove its self from the cluster
+- When a container stop it will gracefully failover from the cluster and issue a rebalance on exit
 
 Below is an example systemd service unit
 
@@ -97,3 +97,12 @@ ExecStop=/usr/bin/docker stop --time=120 couchbase
 Restart=always
 RestartSec=20
 ```
+
+## TODO
+
+The direction of the project will be get as many arguments as possible from etcd including:
+- Username and password
+- Auto failover timeout in seconds
+- Whether to issue a rebalance automatically upon graceful faillover
+- Whether to issue a rebalance automatically upon new node detection
+- Email alerts
