@@ -3,6 +3,10 @@
 set -m # Enable Job Control
 
 echo "Starting Couchbase"
+cd /opt/couchbase
+mkdir -p var/lib/couchbase var/lib/couchbase/config var/lib/couchbase/data \
+    var/lib/couchbase/stats var/lib/couchbase/logs var/lib/moxi
+chown -R couchbase:couchbase var
 /etc/init.d/couchbase-server start
 
 function clean_up {
