@@ -167,7 +167,7 @@ func main() {
 	}()
 
 	ch := make(chan os.Signal)
-	signal.Notify(ch, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGTERM)
+	signal.Notify(ch, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGTERM, syscall.SIGKILL)
 	log.Println(<-ch)
 	log.Println("Failing over")
 
