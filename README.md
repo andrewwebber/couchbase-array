@@ -87,13 +87,13 @@ Below is an example systemd service unit
 
 ```bash
 [Service]
-TimeoutStartSec=10m
+TimeoutSec=0
 ExecStartPre=-/usr/bin/mkdir /home/core/couchbase
 ExecStartPre=/usr/bin/chown 999:999 /home/core/couchbase
 ExecStartPre=-/usr/bin/docker kill couchbase
 ExecStartPre=-/usr/bin/docker rm -f couchbase
-ExecStart=-/usr/bin/sh -c 'source /etc/profile.d/etcdctl.sh && /usr/bin/docker run --name couchbase --net="host" -v /home/core/couchbase:/opt/couchbase/var -e ETCDCTL_PEERS=http://10.100.2.2:4001 --ulimit nofile=40960:40960 --ulimit core=100000000:100000000 --ulimit memlock=100000000:100000000 andrewwebber/couchbase-cloudarray'
-ExecStop=/usr/bin/docker stop --time=120 couchbase
+ExecStart=/usr/bin/docker run --name couchbase --net="host" -v /home/core/couchbase:/opt/couchbase/var -e ETCDCTL_PEERS=http://192.168.89.215:4001 --ulimit nofile=40960:40960 --ulimit core=100000000:100000000 --ulimit memlock=100000000:100000000 andrewwebber/couchbase-array
+ExecStop=/usr/bin/docker kill --signal=SIGTERM couchbase
 Restart=always
 RestartSec=20
 ```
