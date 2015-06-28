@@ -18,7 +18,7 @@ function clean_up {
 	exit
 }
 
-trap 'clean_up' SIGHUP SIGINT SIGTERM TERM
+trap 'clean_up' SIGHUP SIGINT SIGTERM SIGKILL TERM
 
 untilsuccessful() {
   "$@"
