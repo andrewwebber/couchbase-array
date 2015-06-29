@@ -1,6 +1,6 @@
 # CoreOS - Couchbase
 
-- Download a CoreOS ISO and start a couple of VMs
+- Download a CoreOS etcd2 enabled ISO and start a couple of VMs
 
 ## ETCD
 
@@ -11,6 +11,7 @@ wget https://raw.githubusercontent.com/andrewwebber/couchbase-array/master/coreo
 sudo coreos-install -c etcd.config -C alpha -d /dev/sda && sudo shutdown -r now
 ```
 
+## Coucbase Server
 - Setup a Couchbase server node.
 ```bash
 wget https://raw.githubusercontent.com/andrewwebber/couchbase-array/master/coreos/server-node.config

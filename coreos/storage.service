@@ -1,0 +1,12 @@
+[Unit]
+Description=Couchbase Storage File System
+
+[Service]
+ExecStart=-/usr/bin/sh -c '/usr/bin/docker run -p 8484:8484 andrewwebber/cbfs /usr/bin/cbfs.linux \
+-couchbase=http://$(etcdctl get services/couchbase):8091 -node=$(cat /etc/machine-id)'
+Restart=always
+RestartSec=20
+
+[X-Fleet]
+MachineMetadata=role=couchbase
+Global=true
