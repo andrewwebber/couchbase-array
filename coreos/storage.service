@@ -1,12 +1,17 @@
 [Unit]
 Description=Couchbase Storage File System
+Documentation=http://github.com/andrewwebber/couchbase-array
+Requires=network-online.target
+Requires=docker.service
+After=docker.service
 
 [Service]
-ExecStart=-/usr/bin/sh -c '/usr/bin/docker run -p 8484:8484 andrewwebber/cbfs /usr/bin/cbfs.linux \
--couchbase=http://$(etcdctl get services/couchbase):8091 -node=$(cat /etc/machine-id)'
+ExecStart=-/usr/bin/sh -c 'source /etc/profile.d/etcdctl.sh && \
+/usr/bin/docker run --name cbfs --net="host" andrewwebber/cbfs \
+-couchbase=http://$(etcdctl get services/couchbase-array/ip):8091 -nodeID=$(cat /etc/machine-id)'
+ExecStop=/usr/bin/docker kill --signal=SIGTERM cbfs
 Restart=always
 RestartSec=20
 
 [X-Fleet]
-MachineMetadata=role=couchbase
 Global=true
