@@ -7,7 +7,7 @@ import (
 )
 
 // StartScheduler starts a scheduling loop
-func StartScheduler(servicePath string, timeoutInSeconds int, stop <-chan bool) {
+func StartScheduler(servicePath string, timeoutInSeconds int, stop <-chan bool, masterIPPath string) {
 	for {
 		currentStates, err := Schedule(servicePath)
 		if err != nil {
@@ -20,7 +20,7 @@ func StartScheduler(servicePath string, timeoutInSeconds int, stop <-chan bool) 
 			master.TTL = ttl
 			currentStates[master.SessionID] = master
 			etcdClient = NewEtcdClient()
-			if _, err = etcdClient.Set(servicePath+"/ip", master.IPAddress, uint64(timeoutInSeconds)); err != nil {
+			if _, err = etcdClient.Set(masterIPPath, master.IPAddress, uint64(timeoutInSeconds)); err != nil {
 				log.Println(err)
 			}
 		}

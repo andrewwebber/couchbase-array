@@ -23,6 +23,7 @@ var debugFlag = flag.Bool("v", false, "verbose")
 var machineIdentiferFlag = flag.String("ip", "", "machine ip address")
 var whatIfFlag = flag.Bool("t", false, "what if")
 var cliBase = flag.String("cli", "/opt/couchbase/bin/couchbase-cli", "path to couchbase cli")
+var masterNodeAnnouncePathFlag = flag.String("m", "/services/couchbase", "announce etcd path for the master IP")
 
 func main() {
 	log.SetFlags(log.Llongfile)
@@ -70,7 +71,7 @@ func main() {
 				err := couchbasearray.AcquireLock(sessionID, *servicePathFlag+"/master", 5)
 				if err == nil {
 					stopScheduler := make(chan bool)
-					go couchbasearray.StartScheduler(*servicePathFlag, *heartBeatFlag, stopScheduler)
+					go couchbasearray.StartScheduler(*servicePathFlag, *heartBeatFlag, stopScheduler, *masterNodeAnnouncePathFlag)
 					go func() {
 						failoverSet := false
 						for {
