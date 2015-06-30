@@ -27,7 +27,7 @@ var cliBase = flag.String("cli", "/opt/couchbase/bin/couchbase-cli", "path to co
 func main() {
 	log.SetFlags(log.Llongfile)
 	flag.Parse()
-
+	log.Println("Couchbase Cluster Node")
 	couchbasearray.TTL = uint64(*ttlFlag)
 	log.Printf("TTL %v\n", couchbasearray.TTL)
 

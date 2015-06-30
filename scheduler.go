@@ -19,6 +19,10 @@ func StartScheduler(servicePath string, timeoutInSeconds int, stop <-chan bool) 
 			ttl := time.Now().Add(time.Duration(timeoutInSeconds+3) * time.Second).UnixNano()
 			master.TTL = ttl
 			currentStates[master.SessionID] = master
+			etcdClient = NewEtcdClient()
+			if _, err = etcdClient.Set(servicePath+"/ip", master.IPAddress, uint64(timeoutInSeconds)); err != nil {
+				log.Println(err)
+			}
 		}
 
 		if err == nil {
