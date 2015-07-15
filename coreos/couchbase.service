@@ -1,0 +1,20 @@
+[Unit]
+Description=Couchbase Service
+Documentation=http://github.com/andrewwebber/couchbase-array
+Requires=network-online.target
+Requires=docker.service
+After=docker.service
+
+[Service]
+TimeoutSec=0
+ExecStartPre=-/usr/bin/mkdir /home/core/couchbase
+ExecStartPre=/usr/bin/chown 999:999 /home/core/couchbase
+ExecStartPre=-/usr/bin/docker kill couchbase
+ExecStartPre=-/usr/bin/docker rm -f couchbase
+ExecStart=/usr/bin/docker run --name couchbase --net="host" -v /home/core/couchbase:/opt/couchbase/var --ulimit nofile=40960:40960 --ulimit core=100000000:100000000 --ulimit memlock=100000000:100000000 andrewwebber/couchbase-array
+ExecStop=/usr/bin/docker kill --signal=SIGTERM couchbase
+Restart=always
+RestartSec=20
+
+[X-Fleet]
+Global=true

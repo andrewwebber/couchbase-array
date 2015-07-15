@@ -4,11 +4,16 @@ Documentation=http://github.com/andrewwebber/couchbase-array
 Requires=network-online.target
 Requires=docker.service
 After=docker.service
+After=network-online.target
+After=docker-volumes.service
 
 [Service]
-ExecStart=-/usr/bin/sh -c 'source /etc/profile.d/etcdctl.sh && \
-/usr/bin/docker run --name cbfs --net="host" andrewwebber/cbfs \
--couchbase=http://$(etcdctl get services/couchbase):8091 -nodeID=$(cat /etc/machine-id)'
+EnvironmentFile=/etc/network-environment
+ExecStartPre=-/usr/bin/mkdir /home/core/cbfs
+ExecStartPre=/usr/bin/chown 999:999 /home/core/cbfs
+ExecStartPre=-/usr/bin/docker kill cbfs
+ExecStartPre=-/usr/bin/docker rm -f cbfs
+ExecStart=-/usr/bin/sh -c '/usr/bin/docker run --name cbfs --net="host" -v /home/core/cbfs:/opt/cbfs/var andrewwebber/cbfs -couchbase=http://${DEFAULT_IPV4}:8091 -nodeID=${DEFAULT_IPV4}-$(cat /etc/machine-id) --root=/opt/cbfs/var'
 ExecStop=/usr/bin/docker kill --signal=SIGTERM cbfs
 Restart=always
 RestartSec=20
