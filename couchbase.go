@@ -238,13 +238,35 @@ func NewEtcdClient() (client *etcd.Client) {
 		return etcdClient
 	}
 
+	tlsEnabled := os.Getenv("ETCDCTL_TLS")
+	tls := len(tlsEnabled) > 0
+
+	certFile := os.Getenv("ETCDCTL_CERT_FILE")
+	keyFile := os.Getenv("ETCDCTL_KEY_FILE")
+	caFile := os.Getenv("ETCDCTL_TRUSTED_CA_FILE")
+
+	var err error
 	peersStr := os.Getenv("ETCDCTL_PEERS")
 	if len(peersStr) > 0 {
 		log.Println("Connecting to etcd peers : " + peersStr)
 		peers := strings.Split(peersStr, ",")
-		etcdClient = etcd.NewClient(peers)
+		if tls {
+			etcdClient, err = etcd.NewTLSClient(peers, certFile, keyFile, caFile)
+			if err != nil {
+				log.Fatal(err)
+			}
+		} else {
+			etcdClient = etcd.NewClient(peers)
+		}
 	} else {
-		etcdClient = etcd.NewClient(nil)
+		if tls {
+			etcdClient, err = etcd.NewTLSClient(nil, certFile, keyFile, caFile)
+			if err != nil {
+				log.Fatal(err)
+			}
+		} else {
+			etcdClient = etcd.NewClient(nil)
+		}
 	}
 
 	return etcdClient

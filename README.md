@@ -63,18 +63,18 @@ The project requires a golang project structure
 
     ```bash
     go get github.com/coreos/etcd
-    etcd --advertise-client-urls=http://192.168.89.1:4001,http://localhost:4001 --listen-client-urls=http://192.168.89.1:4001,http://localhost:4001
+    etcd --advertise-client-urls=http://172.16.237.1:4001,http://localhost:4001 --listen-client-urls=http://172.16.237.1:4001,http://localhost:4001
     ```
 
 3.  Start as many couchbase containers as you want
 
     ```bash
-    docker run -d --name couchbase1 -p 8091:8091 -e ETCDCTL_PEERS=http://192.168.89.1:4001 andrewwebber/couchbase-cloudarray
-    docker run -d --name couchbase2 -e ETCDCTL_PEERS=http://192.168.89.1:4001 andrewwebber/couchbase-cloudarray
-    docker run -d --name couchbase3 -e ETCDCTL_PEERS=http://192.168.89.1:4001 andrewwebber/couchbase-cloudarray
+    docker run -d --name couchbase1 -p 8091:8091 -e ETCDCTL_PEERS=http://172.16.237.1:4001 andrewwebber/couchbase-cloudarray
+    docker run -d --name couchbase2 -e ETCDCTL_PEERS=http://172.16.237.1:4001 andrewwebber/couchbase-cloudarray
+    docker run -d --name couchbase3 -e ETCDCTL_PEERS=http://172.16.237.1:4001 andrewwebber/couchbase-cloudarray
     ```
 
-4.  Browser to a node [http://192.168.89.103:8091] and login with **Administrator** **password**
+4.  Browser to a node [http://172.16.237.103:8091] and login with **Administrator** **password**
 
 5.  Destroy and start containers at will
 
