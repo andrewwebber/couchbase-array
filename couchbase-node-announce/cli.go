@@ -136,6 +136,7 @@ func addNodeToCluster(masterIP string, nodeIP string) (bool, error) {
 		"hostname": {nodeIP},
 		"user":     {"Administrator"},
 		"password": {"password"},
+		"services": {"kv,index,n1ql"},
 	}
 
 	preq, err := http.NewRequest("POST", endpointURL, bytes.NewBufferString(data.Encode()))
