@@ -23,7 +23,7 @@ trap 'clean_up' SIGHUP SIGINT SIGTERM SIGKILL TERM
 untilsuccessful() {
   "$@"
   status=$?
-  while [ $status -ne 0 -o $status -eq 2 ]
+  while [ $status -ne 0 -a $status -ne 2 ]
   do
     echo Retrying... $status
     sleep 1
