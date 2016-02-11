@@ -22,12 +22,16 @@ trap 'clean_up' SIGHUP SIGINT SIGTERM SIGKILL TERM
 
 untilsuccessful() {
   "$@"
-  while [ $? -ne 0 ]
+  status=$?
+  while [ $status -ne 0 -o $status -eq 2 ]
   do
-    echo Retrying...
+    echo Retrying... $status
     sleep 1
     "$@"
+    status=$?
   done
+
+  echo Success $status
 }
 
 untilunsuccessful() {
@@ -46,9 +50,7 @@ RAMSIZE=0
 RAMSIZE=$(cat /proc/meminfo | grep MemFree | awk '{print $2}')
 echo "Acceptable RAM SIZE" $(echo $RAM_SIZE)
 echo "Configuring Couchbase cluster with services --service=data,index,query"
-untilsuccessful /opt/couchbase/bin/couchbase-cli cluster-init -u Administrator -p password -c 127.0.0.1:8091 \
---cluster-init-username=Administrator --cluster-init-password=password \
---cluster-init-ramsize=1000 
+untilsuccessful /opt/couchbase/bin/couchbase-cli cluster-init -u Administrator -p password -c 127.0.0.1:8091 --cluster-init-username=Administrator --cluster-init-password=password --cluster-init-ramsize=1000 --service=data,index,query
 
 echo "Cluster up"
 #untilunsuccessful curl 127.0.0.1:8091
