@@ -20,6 +20,7 @@ var servicePathFlag = flag.String("s", "/services/couchbase-array", "etcd direct
 var heartBeatFlag = flag.Int("h", 3, "heart beat loop in seconds")
 var ttlFlag = flag.Int("ttl", 30, "time to live in seconds")
 var debugFlag = flag.Bool("v", false, "verbose")
+var rebalanceOnExitFlag = flag.Bool("r", false, "rebalance on exit")
 var machineIdentiferFlag = flag.String("ip", "", "machine ip address")
 var whatIfFlag = flag.Bool("t", false, "what if")
 var cliBase = flag.String("cli", "/opt/couchbase/bin/couchbase-cli", "path to couchbase cli")
@@ -189,9 +190,11 @@ func main() {
 		log.Fatal(err)
 	}
 
-	err = rebalanceNode(master.IPAddress, machineIdentifier)
-	if err != nil {
-		log.Fatal(err)
+	if *rebalanceOnExitFlag {
+		err = rebalanceNode(master.IPAddress, machineIdentifier)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 }
 
