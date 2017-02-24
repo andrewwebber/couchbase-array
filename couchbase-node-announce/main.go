@@ -202,7 +202,12 @@ func main() {
 
 func getMachineIdentifier() (string, error) {
 	if *statefulSet != "" {
-		return fmt.Sprintf("%s%s", os.Hostname(), *statefulSet)
+		hostname, err := os.Hostname()
+		if err != nil {
+			return hostname, err
+		}
+
+		return fmt.Sprintf("%s%s", hostname, *statefulSet), nil
 	}
 
 	addrs, err := net.InterfaceAddrs()
