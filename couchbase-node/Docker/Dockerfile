@@ -12,6 +12,6 @@ RUN chmod +x /usr/bin/couchbase-node
 ADD couchbase-node-announce.linux /usr/bin/couchbase-node-announce
 RUN chmod +x /usr/bin/couchbase-node-announce
 
-CMD ["/usr/bin/couchbase-node"]
+ENTRYPOINT ["/usr/bin/couchbase-node"]
 
 EXPOSE 8091 8092 11207 11210 11211 18091 18092
