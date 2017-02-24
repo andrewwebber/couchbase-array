@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"math"
 	"net"
@@ -24,7 +25,7 @@ var rebalanceOnExitFlag = flag.Bool("r", false, "rebalance on exit")
 var machineIdentiferFlag = flag.String("ip", "", "machine ip address")
 var whatIfFlag = flag.Bool("t", false, "what if")
 var cliBase = flag.String("cli", "/opt/couchbase/bin/couchbase-cli", "path to couchbase cli")
-var statefulSet = flag.Bool("statefulset", false, "use hostnames instead of ip addresses")
+var statefulSet = flag.String("statefulset", "", "use stateful")
 var masterNodeAnnouncePathFlag = flag.String("m", "/services/couchbase", "announce etcd path for the master IP")
 
 func main() {
@@ -200,8 +201,8 @@ func main() {
 }
 
 func getMachineIdentifier() (string, error) {
-	if *statefulSet {
-		return os.Hostname()
+	if *statefulSet != "" {
+		return fmt.Sprintf("%s%s", os.Hostname(), *statefulSet)
 	}
 
 	addrs, err := net.InterfaceAddrs()
