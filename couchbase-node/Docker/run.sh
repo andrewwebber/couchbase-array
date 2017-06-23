@@ -50,7 +50,7 @@ RAMSIZE=0
 RAMSIZE=$(cat /proc/meminfo | grep MemFree | awk '{print $2}')
 echo "Acceptable RAM SIZE" $(echo $RAM_SIZE)
 echo "Configuring Couchbase cluster with services --service=data,index,query"
-untilsuccessful /opt/couchbase/bin/couchbase-cli cluster-init -u Administrator -p password -c 127.0.0.1:8091 --cluster-init-username=Administrator --cluster-init-password=password --cluster-init-ramsize=1000 --service=data,index,query
+untilsuccessful /opt/couchbase/bin/couchbase-cli cluster-init -u Administrator -p password -c 127.0.0.1:8091 --cluster-init-username=Administrator --cluster-init-password=password --cluster-ramsize=4000 --cluster-index-ramsize=512 --service=data,index,query
 
 echo "Cluster up"
 #untilunsuccessful curl 127.0.0.1:8091

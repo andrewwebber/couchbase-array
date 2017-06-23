@@ -1,11 +1,11 @@
-FROM debian:latest
+FROM debian:jessie
 
 RUN apt-get update && apt-get install -y \
     ca-certificates wget python-httplib2 curl
-
-RUN wget -N -P /tmp http://packages.couchbase.com/releases/4.1.0/couchbase-server-community_4.1.0-debian7_amd64.deb
-RUN dpkg -i /tmp/couchbase-server-community_4.1.0-debian7_amd64.deb
-RUN rm /tmp/couchbase-server-community_4.1.0-debian7_amd64.deb
+# RUN apt-get install libssl-dev -y
+RUN wget -N -P /tmp https://packages.couchbase.com/releases/4.6.2/couchbase-server-enterprise_4.6.2-debian8_amd64.deb
+RUN dpkg -i /tmp/couchbase-server-enterprise_4.6.2-debian8_amd64.deb
+RUN rm /tmp/couchbase-server-enterprise_4.6.2-debian8_amd64.deb
 RUN apt-get install -y curl
 ADD run.sh /usr/bin/couchbase-node
 RUN chmod +x /usr/bin/couchbase-node
