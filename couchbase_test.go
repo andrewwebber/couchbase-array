@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"code.google.com/p/go-uuid/uuid"
+	"github.com/pborman/uuid"
 )
 
 func TestClusterScenarios(t *testing.T) {
