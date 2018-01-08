@@ -48,12 +48,12 @@ untilunsuccessful() {
 
 RAMSIZE=0
 RAMSIZE=$(cat /proc/meminfo | grep MemFree | awk '{print $2}')
-echo "Initiated with RAM SIZE 1000"
+echo "Initiated with RAM SIZE $RAM_SIZE"
 echo "Configuring Couchbase cluster with services --service=data,index,query"
-untilsuccessful /opt/couchbase/bin/couchbase-cli cluster-init --cluster-username $COUCHBASE_ADMIN --cluster-password $COUCHBASE_PASSWORD -c 127.0.0.1:8091 --cluster-ramsize=1000 --cluster-index-ramsize=512 #--service=data,index,query
+untilsuccessful curl 127.0.0.1:8091
+/opt/couchbase/bin/couchbase-cli cluster-init --cluster-username $COUCHBASE_ADMIN --cluster-password $COUCHBASE_PASSWORD -c 127.0.0.1:8091 --cluster-ramsize=$RAM_SIZE --cluster-index-ramsize=512 #--service=data,index,query
 
 echo "Cluster up"
-#untilunsuccessful curl 127.0.0.1:8091
 export PATH=$PATH:/opt/couchbase/bin/
 couchbase-node-announce $@ &
 C_PID=$!
