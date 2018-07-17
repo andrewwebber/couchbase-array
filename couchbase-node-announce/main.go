@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"log"
 	"math"
 	"net"
@@ -136,12 +137,15 @@ func main() {
 							if err != nil {
 								log.Println(err)
 							} else {
-								if master.IPAddress == machineIdentifier {
-									log.Println("Already master no action required")
-								} else {
-									log.Printf("Adding to master node %s\n", master.IPAddress)
-									if !*whatIfFlag {
-										isClusterMember, err = addNodeToCluster(master.IPAddress, machineIdentifier)
+								if !alreadyClustered() {
+									if master.IPAddress == machineIdentifier {
+										log.Println("Already master no action required")
+									} else {
+										log.Printf("Adding to master node %s\n", master.IPAddress)
+										if !*whatIfFlag {
+											isClusterMember, err = addNodeToCluster(master.IPAddress, machineIdentifier)
+											ioutil.WriteFile("/opt/couchbase/var/lib/couchbase/_clustered", []byte{}, os.ModePerm)
+										}
 									}
 								}
 
@@ -198,6 +202,16 @@ func main() {
 			log.Fatal(err)
 		}
 	}
+}
+
+func alreadyClustered() bool {
+	return false
+	// if _, err := os.Stat("/opt/couchbase/var/lib/couchbase/_clustered"); err == nil {
+	// 	log.Println("Already previously clustered")
+	// 	return true
+	// }
+	//
+	// return false
 }
 
 func getMachineIdentifier() (string, error) {

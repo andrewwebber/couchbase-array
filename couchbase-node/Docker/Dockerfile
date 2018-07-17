@@ -1,4 +1,4 @@
-FROM couchbase:community-5.0.1
+FROM couchbase:enterprise-5.1.1
 
 ADD run.sh /usr/bin/couchbase-node
 RUN chmod +x /usr/bin/couchbase-node

@@ -7,7 +7,15 @@ cd /opt/couchbase
 mkdir -p var/lib/couchbase var/lib/couchbase/config var/lib/couchbase/data \
     var/lib/couchbase/stats var/lib/couchbase/logs var/lib/moxi
 chown -R couchbase:couchbase var
-/etc/init.d/couchbase-server start
+
+if [ -v "$KUBERNETES" ]; then
+  echo "Setting hostname"
+  echo "$(hostname).couchbase-master-service" > /opt/couchbase/var/lib/couchbase/ip
+  echo "$(hostname).couchbase-master-service" > /opt/couchbase/var/lib/couchbase/ip_start
+fi
+
+# /etc/init.d/couchbase-server start
+/entrypoint.sh couchbase-server &
 
 function clean_up {
 
@@ -46,12 +54,16 @@ untilunsuccessful() {
   exit $?
 }
 
-RAMSIZE=0
-RAMSIZE=$(cat /proc/meminfo | grep MemFree | awk '{print $2}')
-echo "Initiated with RAM SIZE $RAM_SIZE"
-echo "Configuring Couchbase cluster with services --service=data,index,query"
 untilsuccessful curl 127.0.0.1:8091
-/opt/couchbase/bin/couchbase-cli cluster-init --cluster-username $COUCHBASE_ADMIN --cluster-password $COUCHBASE_PASSWORD -c 127.0.0.1:8091 --cluster-ramsize=$RAM_SIZE --cluster-index-ramsize=512 #--service=data,index,query
+
+if [ ! -f /opt/couchbase/var/lib/couchbase/_init ]; then
+  RAMSIZE=0
+  RAMSIZE=$(cat /proc/meminfo | grep MemFree | awk '{print $2}')
+  echo "Initiated with RAM SIZE $RAM_SIZE"
+  echo "Configuring Couchbase cluster with services --service=data,index,query"
+  /opt/couchbase/bin/couchbase-cli cluster-init --cluster-username $COUCHBASE_ADMIN --cluster-password $COUCHBASE_PASSWORD -c 127.0.0.1:8091 --cluster-ramsize=$RAM_SIZE --cluster-index-ramsize=512 #--service=data,index,query
+  touch /opt/couchbase/var/lib/couchbase/_init
+fi
 
 echo "Cluster up"
 export PATH=$PATH:/opt/couchbase/bin/
