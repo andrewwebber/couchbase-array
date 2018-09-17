@@ -112,16 +112,18 @@ func main() {
 						case couchbasearray.SchedulerStateClustered:
 							log.Println("rebalancing")
 
-							if master.IPAddress == machineIdentifier {
-								log.Println("Already master no action required")
-							} else {
-								log.Printf("rebalancing with master node %s\n", master.IPAddress)
-								if !*whatIfFlag {
-									if isClusterMember {
-										err = recoverNode(master.IPAddress, machineIdentifier)
-									}
+							if !alreadyClustered() {
+								if master.IPAddress == machineIdentifier {
+									log.Println("Already master no action required")
+								} else {
+									log.Printf("rebalancing with master node %s\n", master.IPAddress)
+									if !*whatIfFlag {
+										if isClusterMember {
+											err = recoverNode(master.IPAddress, machineIdentifier)
+										}
 
-									err = rebalanceNode(master.IPAddress, machineIdentifier)
+										err = rebalanceNode(master.IPAddress, machineIdentifier)
+									}
 								}
 							}
 
@@ -137,17 +139,19 @@ func main() {
 							if err != nil {
 								log.Println(err)
 							} else {
-								if !alreadyClustered() {
-									if master.IPAddress == machineIdentifier {
-										log.Println("Already master no action required")
-									} else {
-										log.Printf("Adding to master node %s\n", master.IPAddress)
-										if !*whatIfFlag {
-											isClusterMember, err = addNodeToCluster(master.IPAddress, machineIdentifier)
+								//if !alreadyClustered() {
+								if master.IPAddress == machineIdentifier {
+									log.Println("Already master no action required")
+								} else {
+									log.Printf("Adding to master node %s\n", master.IPAddress)
+									if !*whatIfFlag {
+										isClusterMember, err = addNodeToCluster(master.IPAddress, machineIdentifier)
+										if err == nil {
 											ioutil.WriteFile("/opt/couchbase/var/lib/couchbase/_clustered", []byte{}, os.ModePerm)
 										}
 									}
 								}
+								//}
 
 								if err == nil {
 									machineState.State = state.DesiredState
@@ -197,21 +201,25 @@ func main() {
 	}
 
 	if *rebalanceOnExitFlag {
+		time.Sleep(10 * time.Second)
 		err = rebalanceNode(master.IPAddress, machineIdentifier)
 		if err != nil {
 			log.Fatal(err)
 		}
 	}
+
+	log.Println("waiting for TTL drain")
+	time.Sleep(time.Duration(*ttlFlag*2) * time.Second)
 }
 
 func alreadyClustered() bool {
-	return false
-	// if _, err := os.Stat("/opt/couchbase/var/lib/couchbase/_clustered"); err == nil {
-	// 	log.Println("Already previously clustered")
-	// 	return true
-	// }
-	//
 	// return false
+	if _, err := os.Stat("/opt/couchbase/var/lib/couchbase/_clustered"); err == nil {
+		log.Println("Already previously clustered")
+		return true
+	}
+
+	return false
 }
 
 func getMachineIdentifier() (string, error) {
