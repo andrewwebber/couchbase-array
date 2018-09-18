@@ -186,6 +186,8 @@ func main() {
 	signal.Notify(ch, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGTERM, syscall.SIGKILL)
 	log.Println(<-ch)
 	log.Println("Failing over")
+	log.Println("waiting for TTL drain")
+	time.Sleep(time.Duration(*ttlFlag*2) * time.Second)
 
 	currentStates, err := couchbasearray.GetClusterStates(*servicePathFlag)
 	if err != nil {
@@ -211,9 +213,6 @@ func main() {
 			log.Fatal(err)
 		}
 	}
-
-	log.Println("waiting for TTL drain")
-	time.Sleep(time.Duration(*ttlFlag*2) * time.Second)
 }
 
 func alreadyClustered() bool {
