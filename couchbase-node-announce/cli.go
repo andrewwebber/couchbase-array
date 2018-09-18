@@ -215,6 +215,46 @@ func recoverNode(masterIP string, nodeIP string) error {
 }
 
 func rebalanceNode(masterIP string, nodeIP string) error {
+	pclient := &http.Client{}
+	endpointURL := fmt.Sprintf("http://%s:%v/pools/default/rebalanceProgress", masterIP, 8091)
+	log.Println(endpointURL)
+	for {
+		rebalanceRequest, err := http.NewRequest("GET", endpointURL, nil)
+		rebalanceRequest.SetBasicAuth("Administrator", "password")
+		rResp, err := pclient.Do(rebalanceRequest)
+		if err != nil {
+			return err
+		}
+
+		body, err := ioutil.ReadAll(rResp.Body)
+		if err != nil {
+			return err
+		}
+
+		if rResp.StatusCode != 200 {
+			log.Println(rResp.Status)
+			log.Println(string(body))
+			log.Println("Invalid status code")
+		}
+
+		type rebalanceStatus struct {
+			Status string `json:"status"`
+		}
+
+		var status rebalanceStatus
+		if err = json.Unmarshal(body, &status); err != nil {
+			return err
+		}
+
+		if status.Status != "running" {
+			log.Printf("rebalance status: %s", status.Status)
+			break
+		}
+
+		time.Sleep(1 * time.Second)
+		log.Println(status.Status)
+	}
+
 	otpNodeList, err := otpNodeList(masterIP)
 	if err != nil {
 		return err
@@ -222,7 +262,7 @@ func rebalanceNode(masterIP string, nodeIP string) error {
 
 	otpNodes := strings.Join(otpNodeList, ",")
 
-	endpointURL := fmt.Sprintf("http://%s:%v/controller/rebalance", masterIP, 8091)
+	endpointURL = fmt.Sprintf("http://%s:%v/controller/rebalance", masterIP, 8091)
 	log.Println(endpointURL)
 	log.Println(endpointURL)
 	data := url.Values{
@@ -239,7 +279,6 @@ func rebalanceNode(masterIP string, nodeIP string) error {
 
 	preq.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 
-	pclient := &http.Client{}
 	presp, err := pclient.Do(preq)
 	if err != nil {
 		return err

@@ -121,10 +121,14 @@ func main() {
 										if isClusterMember {
 											err = recoverNode(master.IPAddress, machineIdentifier)
 										}
-
-										err = rebalanceNode(master.IPAddress, machineIdentifier)
 									}
 								}
+							}
+
+							if err != nil {
+								log.Println(err)
+							} else {
+								err = rebalanceNode(master.IPAddress, machineIdentifier)
 							}
 
 							if err == nil {
